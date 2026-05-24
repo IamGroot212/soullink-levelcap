@@ -1,0 +1,13 @@
+{
+  "_comment": "Mapping Species-ID → Wachstumsrate. PLATZHALTER mit ein paar Beispielen. Vollständige Datei vor v0.1.0 via scripts/fetch_growth_rates.py aus PokéAPI generieren.",
+  "_pokeapi_slugs": ["erratic", "fast", "medium-fast", "medium-slow", "slow", "fluctuating"],
+  "species": {
+    "1":   "medium-slow",
+    "4":   "medium-slow",
+    "7":   "medium-slow",
+    "25":  "medium-fast",
+    "252": "medium-slow",
+    "255": "medium-slow",
+    "258": "medium-slow"
+  }
+}

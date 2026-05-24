@@ -1,0 +1,13 @@
+# Soullink Level-Caps für Alpha Saphir
+# Format: orden_anzahl=max_level
+# Lines mit # sind Kommentare
+
+0=15
+1=19
+2=24
+3=29
+4=31
+5=33
+6=36
+7=42
+8=48

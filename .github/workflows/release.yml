@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: soullink-levelcap
+            asset: soullink-levelcap-linux-x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: soullink-levelcap.exe
+            asset: soullink-levelcap-windows-x64.exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
+
+  release:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          cp artifacts/soullink-levelcap-linux-x64/soullink-levelcap release/soullink-levelcap-linux-x64
+          cp artifacts/soullink-levelcap-windows-x64.exe/soullink-levelcap.exe release/soullink-levelcap-windows-x64.exe
+          cp caps.example.txt release/
+          chmod +x release/soullink-levelcap-linux-x64
+          ls -la release/
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true

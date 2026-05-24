@@ -1,0 +1,7 @@
+/target
+Cargo.lock.bak
+*.swp
+.DS_Store
+
+# Lokale caps.txt (User-spezifisch), aber caps.example.txt wird committed
+/caps.txt
