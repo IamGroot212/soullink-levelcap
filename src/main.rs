@@ -6,7 +6,10 @@ use clap::Parser;
 use soullink_levelcap::{caps::CapTable, daemon};
 
 #[derive(Parser)]
-#[command(version, about = "Soullink Level-Cap Daemon für Pokemon Alpha Saphir auf Citra")]
+#[command(
+    version,
+    about = "Soullink Level-Cap Daemon für Pokemon Alpha Saphir auf Citra"
+)]
 struct Args {
     /// Pfad zu caps.txt
     #[arg(short, long, default_value = "caps.txt")]

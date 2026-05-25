@@ -29,11 +29,7 @@ pub struct PartyPokemon {
 }
 
 impl PartyPokemon {
-    pub fn read(
-        mem: &impl ProcessMemory,
-        citra: &CitraProcess,
-        slot: u8,
-    ) -> Result<Option<Self>> {
+    pub fn read(mem: &impl ProcessMemory, citra: &CitraProcess, slot: u8) -> Result<Option<Self>> {
         let base = citra.fcram_addr(PARTY_BASE_3DS + (slot as usize) * POKEMON_SIZE);
         let species = mem.read_u16_le(base + OFF_SPECIES)?;
         if species == 0 {
@@ -41,7 +37,12 @@ impl PartyPokemon {
         }
         let exp = mem.read_u32_le(base + OFF_EXP)?;
         let level = mem.read_u8(base + OFF_LEVEL)?;
-        Ok(Some(Self { slot, species, level, exp }))
+        Ok(Some(Self {
+            slot,
+            species,
+            level,
+            exp,
+        }))
     }
 
     pub fn write_exp(

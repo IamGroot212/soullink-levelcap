@@ -36,9 +36,7 @@ pub fn min_exp_for_level(level: u8, rate: GrowthRate) -> u32 {
     let exp: i64 = match rate {
         GrowthRate::Fast => 4 * n.pow(3) / 5,
         GrowthRate::MediumFast => n.pow(3),
-        GrowthRate::MediumSlow => {
-            (6 * n.pow(3)) / 5 - 15 * n.pow(2) + 100 * n - 140
-        }
+        GrowthRate::MediumSlow => (6 * n.pow(3)) / 5 - 15 * n.pow(2) + 100 * n - 140,
         GrowthRate::Slow => 5 * n.pow(3) / 4,
         GrowthRate::Erratic => {
             if n <= 50 {

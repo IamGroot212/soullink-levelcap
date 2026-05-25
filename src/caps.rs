@@ -5,6 +5,7 @@ use std::path::Path;
 /// Mapping `Anzahl gewonnener Hoenn-Orden` → `maximaler Level-Cap`.
 ///
 /// In ORAS gibt es 8 Liga-Orden, also sind gültige Keys `0..=8`.
+#[derive(Debug, Clone)]
 pub struct CapTable {
     caps: BTreeMap<u8, u8>,
 }
@@ -31,16 +32,18 @@ impl CapTable {
                 continue;
             }
 
-            let (k, v) = line.split_once('=').with_context(|| {
-                format!("Zeile {} ungültig (kein '='): {}", i + 1, line)
-            })?;
+            let (k, v) = line
+                .split_once('=')
+                .with_context(|| format!("Zeile {} ungültig (kein '='): {}", i + 1, line))?;
 
-            let badges: u8 = k.trim().parse().with_context(|| {
-                format!("Zeile {}: Orden-Anzahl nicht parsebar: {}", i + 1, k)
-            })?;
-            let cap: u8 = v.trim().parse().with_context(|| {
-                format!("Zeile {}: Level-Cap nicht parsebar: {}", i + 1, v)
-            })?;
+            let badges: u8 = k
+                .trim()
+                .parse()
+                .with_context(|| format!("Zeile {}: Orden-Anzahl nicht parsebar: {}", i + 1, k))?;
+            let cap: u8 = v
+                .trim()
+                .parse()
+                .with_context(|| format!("Zeile {}: Level-Cap nicht parsebar: {}", i + 1, v))?;
 
             if badges > 8 {
                 bail!(
@@ -50,11 +53,7 @@ impl CapTable {
                 );
             }
             if cap == 0 || cap > 100 {
-                bail!(
-                    "Zeile {}: Level-Cap {} außerhalb 1..=100",
-                    i + 1,
-                    cap
-                );
+                bail!("Zeile {}: Level-Cap {} außerhalb 1..=100", i + 1, cap);
             }
 
             if caps.insert(badges, cap).is_some() {

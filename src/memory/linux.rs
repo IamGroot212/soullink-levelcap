@@ -16,7 +16,9 @@ impl LinuxProcessMemory {
         if !std::path::Path::new(&proc_path).exists() {
             bail!("Prozess {} existiert nicht in /proc", pid);
         }
-        Ok(Self { pid: pid as libc::pid_t })
+        Ok(Self {
+            pid: pid as libc::pid_t,
+        })
     }
 
     pub fn pid(&self) -> u32 {
@@ -27,8 +29,8 @@ impl LinuxProcessMemory {
     /// Jeder Eintrag: (start, end, perms, ist_anonym).
     pub fn maps(&self) -> Result<Vec<MapEntry>> {
         let path = format!("/proc/{}/maps", self.pid);
-        let content = std::fs::read_to_string(&path)
-            .with_context(|| format!("kann {} nicht lesen", path))?;
+        let content =
+            std::fs::read_to_string(&path).with_context(|| format!("kann {} nicht lesen", path))?;
         Ok(content.lines().filter_map(MapEntry::parse).collect())
     }
 }
@@ -56,7 +58,12 @@ impl MapEntry {
         let _ = parts.next()?;
         let _ = parts.next()?;
         let pathname = parts.collect::<Vec<_>>().join(" ");
-        Some(Self { start, end, perms, pathname })
+        Some(Self {
+            start,
+            end,
+            perms,
+            pathname,
+        })
     }
 
     pub fn size(&self) -> usize {

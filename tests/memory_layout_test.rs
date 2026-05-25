@@ -28,9 +28,20 @@ fn finds_citra_and_reads_plausible_party() {
         if let Some(pkmn) = PartyPokemon::read(&mem, &citra, slot).expect("Party-Slot nicht lesbar")
         {
             any_alive = true;
-            assert!(pkmn.species > 0 && pkmn.species < 722, "Species-ID {} außerhalb Gen1-6", pkmn.species);
-            assert!(pkmn.level >= 1 && pkmn.level <= 100, "Level {} unplausibel", pkmn.level);
-            eprintln!("[test] Slot {}: species={} lvl={} exp={}", slot, pkmn.species, pkmn.level, pkmn.exp);
+            assert!(
+                pkmn.species > 0 && pkmn.species < 722,
+                "Species-ID {} außerhalb Gen1-6",
+                pkmn.species
+            );
+            assert!(
+                pkmn.level >= 1 && pkmn.level <= 100,
+                "Level {} unplausibel",
+                pkmn.level
+            );
+            eprintln!(
+                "[test] Slot {}: species={} lvl={} exp={}",
+                slot, pkmn.species, pkmn.level, pkmn.exp
+            );
         }
     }
     assert!(any_alive, "Party ist leer — Spieler hat noch kein Pokémon?");

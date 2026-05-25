@@ -15,5 +15,5 @@ pub const BADGE_BYTE_OFFSET_3DS: usize = 0x0800_0000; // TODO: ersetzen
 /// Trainer-Profil-Bereich gespeichert. Bit 0 = Felsorden, Bit 7 = Schemenorden.
 pub fn read_badge_count(mem: &impl ProcessMemory, citra: &CitraProcess) -> Result<u8> {
     let byte = mem.read_u8(citra.fcram_addr(BADGE_BYTE_OFFSET_3DS))?;
-    Ok((byte & 0xFF).count_ones() as u8)
+    Ok(byte.count_ones() as u8)
 }

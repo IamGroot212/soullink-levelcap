@@ -11,8 +11,8 @@ fn main() {
 
     let json_bytes = std::fs::read(&data_path)
         .unwrap_or_else(|e| panic!("Kann {} nicht lesen: {}", data_path.display(), e));
-    let json: serde_json::Value = serde_json::from_slice(&json_bytes)
-        .expect("species_growth.json ist kein gültiges JSON");
+    let json: serde_json::Value =
+        serde_json::from_slice(&json_bytes).expect("species_growth.json ist kein gültiges JSON");
 
     let species = json
         .get("species")
