@@ -44,13 +44,14 @@ fn main() {
 
     let mut builder = phf_codegen::Map::<u16>::new();
     for (id, slug) in &sorted {
+        // Slug-Mapping muss synchron zu GrowthRate::from_pokeapi_slug in src/game/growth_rates.rs gehalten werden.
         let variant = match *slug {
-            "erratic" => "GrowthRate::Erratic",
+            "slow-then-very-fast" | "erratic" => "GrowthRate::Erratic",
             "fast" => "GrowthRate::Fast",
             "medium" | "medium-fast" => "GrowthRate::MediumFast",
             "medium-slow" => "GrowthRate::MediumSlow",
             "slow" => "GrowthRate::Slow",
-            "fluctuating" => "GrowthRate::Fluctuating",
+            "fast-then-very-slow" | "fluctuating" => "GrowthRate::Fluctuating",
             other => panic!(
                 "species_growth.json: unbekannter slug '{}' für Species {}",
                 other, id

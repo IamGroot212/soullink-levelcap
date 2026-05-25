@@ -3,11 +3,15 @@ use anyhow::Result;
 use crate::emulator::CitraProcess;
 use crate::memory::ProcessMemory;
 
-/// Offset des Orden-Bytes im 3DS-Adressraum (FCRAM-relativ).
+/// Offset des Orden-Bytes im 3DS-Adressraum (FCRAM-relativ) für ORAS v1.4.
 ///
-/// TODO(R3): Aktueller Wert ist ein **PLATZHALTER** — vor v0.1.0 mit `scanmem`
-/// / Cheat Engine triangulieren. Siehe docs/OFFSETS.md.
-pub const BADGE_BYTE_OFFSET_3DS: usize = 0x0800_0000; // TODO: ersetzen
+/// Quelle: kcblack42/Citra-Tracker-v2 `citra-updater.py` Zeile 809
+/// (`badgeaddress = 0x8C6DDD4` für OmegaRuby/AlphaSapphire).
+///
+/// **Unverifiziert** — muss mit echtem Citra + Save-States bei 0/3/8 Orden
+/// gegengeprüft werden, ob hier wirklich ein Byte mit popcount = Orden-Anzahl liegt.
+/// Siehe docs/OFFSETS.md R3.
+pub const BADGE_BYTE_OFFSET_3DS: usize = 0x08C6_DDD4;
 
 /// Liest die Anzahl der gewonnenen Hoenn-Liga-Orden aus dem Live-Memory.
 ///

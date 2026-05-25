@@ -20,13 +20,15 @@ from pathlib import Path
 API = "https://pokeapi.co/api/v2/pokemon-species/{id}"
 MAX_ID = 721  # bis inklusive Volcanion (Ende Gen 6)
 OUT = Path(__file__).parent.parent / "data" / "species_growth.json"
+USER_AGENT = "soullink-levelcap-build/0.1 (github.com/IamGroot212/soullink-levelcap)"
 
 
 def fetch(species_id: int, retries: int = 3) -> str:
     url = API.format(id=species_id)
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     for attempt in range(retries):
         try:
-            with urllib.request.urlopen(url, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.load(resp)
             return data["growth_rate"]["name"]
         except (urllib.error.URLError, KeyError) as exc:

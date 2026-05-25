@@ -13,14 +13,17 @@ pub enum GrowthRate {
 }
 
 impl GrowthRate {
+    /// Mapped die PokéAPI-Bezeichnungen (engl. plain) auf unsere Varianten.
+    /// PokéAPI nennt Erratic "slow-then-very-fast" und Fluctuating "fast-then-very-slow";
+    /// "erratic"/"fluctuating" akzeptieren wir zusätzlich für manuell editierte Daten.
     pub fn from_pokeapi_slug(slug: &str) -> Result<Self> {
         Ok(match slug {
-            "erratic" => Self::Erratic,
+            "slow-then-very-fast" | "erratic" => Self::Erratic,
             "fast" => Self::Fast,
             "medium" | "medium-fast" => Self::MediumFast,
             "medium-slow" => Self::MediumSlow,
             "slow" => Self::Slow,
-            "fluctuating" => Self::Fluctuating,
+            "fast-then-very-slow" | "fluctuating" => Self::Fluctuating,
             other => bail!("Unbekannte Wachstumsrate aus PokéAPI: {}", other),
         })
     }
