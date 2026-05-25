@@ -74,6 +74,47 @@ In unserer User-Party haben Slots 1-3 alle `sanity != 0` (Hex-Werte 0xDEE0, 0x86
 randomisiertem ROM speichern Pokemon in non-Standard-Format. Daemon ignoriert
 diese automatisch.
 
+## Stride-Bugfix (Phase C+, 2026-05-26)
+
+**Bug entdeckt**: Anfangs nutzten wir Stride 484 (citra-updater-Wert) ab
+`PARTY_BASE_3DS = 0x0F49E50C`. Nur Slot 0 hatte plausible Daten; Slots 1-3 wurden
+als "korrumpiert" (sanity != 0, garbage species) verworfen. Verifikation gegen
+PKHeX-Export einer Party-Pokemon als `.pk6` zeigte: PKHeX sieht **alle 3 Mons als
+gültig** an. Mein Decrypt produzierte Müll für Slots 1+.
+
+**Root Cause**: In RAM existieren **zwei Party-Kopien**:
+
+- **0x0F49E50C, stride 260** (PB6 `SIZE_6PARTY` = Save-Block-Kopie in RAM)
+- **0x0F5182BC, stride 484** (Citra-Tracker Battle-Party-Layout mit
+  112-Byte-Gap für Battle-Status)
+
+Wir hatten Base von Kopie 1 mit Stride von Kopie 2 gemischt. Slot 0 startet bei
++0 in beiden Layouts, deshalb funktionierte slot 0 zufällig.
+
+**Triangulation** (3 EC-Werte aus .sav gegen RAM cross-korreliert):
+- EC0=0xFC645FE6 (Heatmor)
+- EC1=0x73A26FC1 (Skunkapuh)
+- EC2=0x3F76F4BD (Lvl 72 Mon, Slow growth)
+
+Beide RAM-Triangulationen geben dieselben 3 Pokemon — bestätigt dass beide
+Layouts existieren. Wir nutzen die 260-Stride-Variante (= identisch zu
+PKHeX-Sav-Format, kein 112-Byte-Gap, Stats unverschoben bei +232).
+
+**Fix in src/game/party.rs**: `POKEMON_SIZE = 260`, `STATS_START = 232`.
+
+**Verifikation**: `cargo test --test memory_layout_test -- --ignored --nocapture`
+zeigt jetzt alle 3 Party-Mons:
+```
+[test] Slot 0: species=631 lvl=64 exp=262144   (Heatmor)
+[test] Slot 1: species=434 lvl=64 exp=262144   (Skunkapuh)
+[test] Slot 2: species=604 lvl=72 exp=466560   (Lvl-72, Slow growth)
+```
+
+**Offen**: Welche der beiden RAM-Kopien wird vom Spiel als "authoritative" für
+EXP-Updates genutzt? Vermutung: beide werden in Sync gehalten; daemon schreibt
+in 260-Stride und das gilt nach der nächsten Tick auch im 484-Stride. Live im
+Battle zu testen.
+
 ## Phase D Ergebnis (2026-05-25)
 
 **Daemon-Start funktioniert end-to-end**:

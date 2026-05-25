@@ -7,26 +7,31 @@ use crate::memory::ProcessMemory;
 
 /// Offset der Party-Base im 3DS-Adressraum (FCRAM-relativ) für ORAS v1.4.
 ///
-/// **Triangulation via PV-Cross-Korrelation** (Phase A, 2026-05-25):
-/// PV-Werte aus .sav (Slot 0/1/2) gesucht; eindeutiger Treffer wo
-/// PV0@0, PV1@+484, PV2@+968 alle matchten → 3DS-Adresse 0x0F49E50C.
+/// **Triangulation via EC-Cross-Korrelation** (Phase C+, 2026-05-26):
+/// 3 Pokemon ECs aus .sav gesucht; 2 Triangulationen gefunden:
 ///
-/// citra-updater.py:1047 nennt `0x8CF727C`; für unseren Citra-Build
-/// (citra-windows-msvc-20240303-0ff3440) ist das **nicht** korrekt
-/// (PARTY-BADGE-Distance ist 0xF6F8, nicht 0x894A8 wie im Tracker).
-/// Siehe docs/OFFSETS.md.
+/// - **0x0F49E50C, stride 260** (PB6 Save-Block-Kopie in RAM)
+/// - 0x0F5182BC, stride 484 (Citra-Tracker Battle-Party-Layout)
+///
+/// Wir nutzen die **260-Byte-Stride Variante**: das ist die PKHeX-kompatible
+/// Save-Block-Repräsentation, ohne 112-Byte Battle-Gap.
+///
+/// citra-updater.py:1047 nennt `0x8CF727C` mit Stride 484 — entspricht unserem
+/// 484-Stride Layout (an anderer Adresse). Beide RAM-Kopien werden vom Spiel
+/// synchron gehalten; wir schreiben in die 260-Stride-Kopie.
 pub const PARTY_BASE_3DS: usize = 0x0F49_E50C;
 
-/// Stride zwischen Party-Slots in Bytes (Gen-6).
-pub const POKEMON_SIZE: usize = 484;
+/// Stride zwischen Party-Slots in Bytes (PB6 SIZE_6PARTY).
+pub const POKEMON_SIZE: usize = 260;
 
 /// Maximale Slot-Anzahl in der Party.
 pub const PARTY_SIZE: u8 = 6;
 
-/// Aufteilung des Slots: `[0..PKM_BLOCKS_LEN]` + `[STATS_START..STATS_START+STATS_LEN]`
-/// wird konkateniert zu `[u8; 254]` für `decrypt_slot`/`encrypt_slot`.
+/// PB6-Layout: 232 Byte Encrypted-Blocks + 22 Byte Stats (verschluesselt) =
+/// 254 Bytes die zusammen decrypted werden. Restliche 6 Bytes (256..260) sind
+/// padding/sonstige Stats die wir nicht lesen.
 const PKM_BLOCKS_LEN: usize = 232;
-const STATS_START: usize = 344;
+const STATS_START: usize = 232;
 const STATS_LEN: usize = 22;
 const CONCAT_LEN: usize = PKM_BLOCKS_LEN + STATS_LEN; // 254
 

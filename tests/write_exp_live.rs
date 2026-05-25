@@ -11,12 +11,11 @@ fn write_exp_roundtrip_in_ram() {
     let citra = CitraProcess::find().expect("Citra läuft nicht");
     let mem = DefaultProcessMemory::open(citra.pid).expect("memory open");
 
-    // Suche ersten gültigen Party-Slot
+    // Suche LETZTEN gültigen Party-Slot (höchster Index) um nicht-Slot-0 zu testen
     let mut target: Option<PartyPokemon> = None;
     for slot in 0..PARTY_SIZE {
         if let Some(p) = PartyPokemon::read(&mem, &citra, slot).unwrap() {
             target = Some(p);
-            break;
         }
     }
     let original = target.expect("kein gültiges Party-Pokemon gefunden");
