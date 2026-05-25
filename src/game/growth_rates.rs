@@ -81,6 +81,20 @@ pub fn growth_rate_of(species: u16) -> GrowthRate {
         .unwrap_or(GrowthRate::MediumFast)
 }
 
+/// Berechnet den aktuellen Level aus Total-EXP + Growth-Rate.
+/// Findet das höchste Level (1..=100), dessen `min_exp_for_level` ≤ `exp` ist.
+pub fn level_from_exp(exp: u32, rate: GrowthRate) -> u8 {
+    let mut lvl = 1u8;
+    for candidate in 2..=100u8 {
+        if min_exp_for_level(candidate, rate) <= exp {
+            lvl = candidate;
+        } else {
+            break;
+        }
+    }
+    lvl
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

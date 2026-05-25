@@ -5,13 +5,15 @@ use crate::memory::ProcessMemory;
 
 /// Offset des Orden-Bytes im 3DS-Adressraum (FCRAM-relativ) für ORAS v1.4.
 ///
-/// Quelle: kcblack42/Citra-Tracker-v2 `citra-updater.py` Zeile 809
-/// (`badgeaddress = 0x8C6DDD4` für OmegaRuby/AlphaSapphire).
+/// **Triangulation via PKHeX-Misc-Block-Signatur** (Phase A, 2026-05-25):
+/// Save-File-Misc-Block @ 0x4200 enthält Money(u32)+Badges(u8) als
+/// distinkte Signatur. Scan in Citras 256 MiB FCRAM-Buffer fand einen
+/// einzigen Treffer bei FCRAM-Offset 0x0748EE14 → 3DS-Adresse 0x0F48EE14.
 ///
-/// **Unverifiziert** — muss mit echtem Citra + Save-States bei 0/3/8 Orden
-/// gegengeprüft werden, ob hier wirklich ein Byte mit popcount = Orden-Anzahl liegt.
-/// Siehe docs/OFFSETS.md R3.
-pub const BADGE_BYTE_OFFSET_3DS: usize = 0x08C6_DDD4;
+/// citra-updater.py:1057 nennt `0x8C6DDD4`; bei diesem Citra-Build
+/// (citra-windows-msvc-20240303-0ff3440) + randomisierter CXI ist die
+/// Layout-Position aber komplett anders. Siehe docs/OFFSETS.md.
+pub const BADGE_BYTE_OFFSET_3DS: usize = 0x0F48_EE14;
 
 /// Liest die Anzahl der gewonnenen Hoenn-Liga-Orden aus dem Live-Memory.
 ///

@@ -3,6 +3,113 @@
 > **Status: WIP**. Die hier dokumentierten Offsets sind teilweise Platzhalter und müssen vor v0.1.0
 > mit einem laufenden Citra + ORAS-Save-State verifiziert werden.
 
+## Phase A Ergebnis (2026-05-25)
+
+**Setup**:
+- Citra-Version: `citra-windows-msvc-20240303-0ff3440` (Build 0ff3440, 2024-03-03)
+- ROM: `AS_random2.cxi` (randomisierte ORAS-CXI, EUR-Region, Title-ID `000400000011C500`)
+- Save vorbereitet via PKHeX: Badges auf `0xFF` (alle 8), Party 4×Mons
+
+**Befund FCRAM-Detection**:
+- Citra-Prozess hat **eine** RW-Region ≥ 64 MiB: **256 MiB** großer Buffer
+  (= New3DS Extended FCRAM, statt 128 MiB Old3DS)
+- Heuristik `find_fcram_base` picked diese korrekt
+
+**Befund: citra-updater.py-Offsets stimmen NICHT für unseren Build**:
+- Erwartet (citra-updater.py): Badges `0x08C6DDD4`, Party `0x08CF727C` (Diff `0x894A8`)
+- Tatsächlich (per Triangulation): Badges `0x0F48EE14`, Party `0x0F49E50C` (Diff `0xF6F8`)
+- Die ~100 MiB Verschiebung kommt vermutlich aus Citra-Version-Differenzen oder dem
+  randomisierten CXI-Layout. **Beide Werte aktualisiert** in `src/game/badges.rs` + `src/game/party.rs`.
+
+**Triangulations-Methodik** (siehe `tests/fcram_diagnostic.rs`):
+1. Save-File `main` mit PowerShell ausgelesen
+2. Misc-Block @ file-offset `0x4200`: Money(u32 LE=11012)+Badges(u8=0xFF)+padding
+   → Signatur `04 2B 00 00 FF 00 00 00` (8 bytes, eindeutig)
+3. Scan in 256 MiB FCRAM: **1 Treffer** → Badge-Adresse `0x0F48EE14`
+4. Party-PVs aus `main` @ file-offset `0x14200` ausgelesen (4 von 6 Slots belegt)
+5. Scan PV0+PV1+PV2: cross-korrelation an `+0/+484/+968` → **eindeutig** Party-Base `0x0F49E50C`
+
+**Test-Output `memory_layout_test`**:
+```
+[test] Orden: 8   <-- ✓ Badge-Read funktioniert
+thread panicked: Species-ID 57638 außerhalb Gen1-6   <-- erwartet, Decrypt fehlt (Phase C)
+```
+
+**Offen / Risiken**:
+- **Stability across Citra-Restart unverifiziert** — der gefundene Offset könnte sich
+  ändern wenn Citra anders allocate (Save-State-Load vs. Continue, oder zwischen Sessions)
+- Pi-Side sollte ggf. eine **Runtime-Triangulation** via Misc-Signatur einbauen,
+  statt hardcoded Offsets zu verwenden (siehe `tests/fcram_diagnostic.rs`)
+
+## Phase C Ergebnis (2026-05-25)
+
+**Implementation**:
+- `src/game/decrypt.rs`: `decrypt_slot`/`encrypt_slot` für 254-Byte-Konkat
+  (slot[0..232] + slot[344..366]) per LCG-XOR + 4-Block-Shuffle.
+- Algorithmus 1:1 nach `citra-updater.py:100-181` (kcblack42/Citra-Tracker-v2).
+- Roundtrip-Tests grün, 5 Unit-Tests.
+
+**Was funktioniert**: Block-A-Decrypt (Species + EXP) für Slot 0.
+Slot 0 in unserem Test: `species=631 lvl=64 exp=262144` — EXP = 64³ = Medium-Fast
+Lvl 64, in sich konsistent. OT-Name "ANGELA" (player name) korrekt aus Block D.
+
+**Was NICHT funktioniert**: Stats-Decrypt (slot[344..366]) liefert für `plain[0xEC]`
+(Level) keinen plausiblen Wert — getestet mit drei LCG-Varianten:
+1. **Reset zwischen Blocks und Stats** (Citra-Tracker default): liefert 171/165/172/153
+2. **LCG continuous über alle 254 Bytes**: liefert 224/56/93/227
+3. **Continuous + Skip-Gap (56 Advances)**: liefert 235/194/195/50
+
+Keine Variante gibt für alle Slots gültige Level. Production-Workaround:
+**Level wird aus EXP + Growth-Rate berechnet** (`growth_rates::level_from_exp`)
+statt aus `plain[0xEC]` gelesen.
+
+**Slot-Filter in `PartyPokemon::read`**:
+- `PV == 0` → leer (skip)
+- `Sanity != 0` (bytes 4-5) → korrumpiert / non-PB6-Format (skip)
+- `species == 0 || species > 721` → außerhalb Gen-1-6 (skip)
+- `exp > 1_640_000` → über Lvl 100 in jedem Growth-Rate (skip)
+
+In unserer User-Party haben Slots 1-3 alle `sanity != 0` (Hex-Werte 0xDEE0, 0x863A,
+0xB6A8) bereits im Backup vor PKHeX-Edit. Vermutung: Soullink-Importe via
+randomisiertem ROM speichern Pokemon in non-Standard-Format. Daemon ignoriert
+diese automatisch.
+
+## Phase D Ergebnis (2026-05-25)
+
+**Daemon-Start funktioniert end-to-end**:
+```
+[soullink-levelcap v0.1.0] gestartet
+[INFO] Caps geladen aus: caps.txt
+[INFO]   0 Orden → Lvl 15  ...  8 Orden → Lvl 48
+[soullink-levelcap] Suche Citra-Prozess...
+[soullink-levelcap] Citra gefunden (PID: 46448, FCRAM @ 0x2150d424000)
+[INFO] Orden-Anzahl: 8 → Cap: Level 48
+```
+
+**Stabilitäts-Check**: FCRAM-Host-Adresse wechselte zwischen Citra-Sessions
+(0x1E680005000 → 0x2150d424000) — unsere `find_fcram_base` Heuristik fand den
+neuen Host-Pointer korrekt; die 3DS-virtuellen Offsets in `BADGE_BYTE_OFFSET_3DS`
+und `PARTY_BASE_3DS` blieben gültig. Layout-Position innerhalb FCRAM ist also
+stable across Citra-Restart.
+
+**Live Write/Read-Roundtrip** (`tests/write_exp_live.rs`):
+```
+Ausgangs:  Slot 0 species=631 lvl=64 exp=262144
+Schreibe:  EXP=274489
+Read-back: species=631 lvl=64 exp=274489    ✓ persistent in RAM
+Restore:   EXP=262144                       ✓
+```
+`PartyPokemon::write_exp` (decrypt → modify EXP → encrypt → write blocks+stats)
+funktioniert in live Citra-RAM. Species bleibt unverändert, EXP wird präzise
+gesetzt, beim nächsten Read kommt der neue Wert raus.
+
+**Was NICHT live getestet wurde**:
+- Cap-Freeze-Logik beim aktiven Spielen (Pokemon kämpft, gewinnt EXP, Daemon
+  schreibt zurück). User-Party Slot 0 = Lvl 64 ist über jedem definierten Cap
+  (max Cap 48 bei 8 Orden), `Overshoot-Policy` friert beim aktuellen Level ein
+  statt down-zu-leveln. Demonstrable via Battle in Citra, aber nicht automatisierbar.
+- Cap-Update beim Gewinn neuer Orden — User hat schon alle 8.
+
 ## Ziel-Spiel
 
 - **Pokémon Alpha Saphir v1.4** (PAL DE/EN, JP, US — alle teilen die gleichen FCRAM-Offsets, nur Title-ID differiert)
