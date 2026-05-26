@@ -1,13 +1,16 @@
-# Soullink Level-Caps für Alpha Saphir
+# Soullink Level-Caps für Alpha Saphir — Match-Mode
 # Format: orden_anzahl=max_level
 # Lines mit # sind Kommentare
+#
+# Cap = Top-Level des nächsten Gym-Leaders (= du betrittst Gym auf Augenhöhe).
+# Vor Liga (8 Orden) = Top-Level Champion Troy.
 
-0=15
-1=19
-2=24
-3=29
-4=31
-5=33
-6=36
-7=42
-8=48
+0=14    # vs Felsia (Top 14, Onix)
+1=17    # vs Kamillo (Top 17, Makuhita)
+2=23    # vs Walter (Top 23, Magneton)
+3=28    # vs Flavia (Top 28, Camerupt)
+4=31    # vs Norman (Top 31, Recordit/Slaking)
+5=35    # vs Wibke (Top 35, Altaria)
+6=42    # vs Ben & Svenja (Top 42, Solrock & Lunastein)
+7=46    # vs Wassili (Top 46, Milotic)
+8=58    # vs Liga + Champion Troy (Top 58, Methagross)
