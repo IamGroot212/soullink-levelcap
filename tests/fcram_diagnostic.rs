@@ -4,6 +4,10 @@
 //! ```bash
 //! cargo test --test fcram_diagnostic -- --ignored --nocapture
 //! ```
+//!
+//! Windows-only (nutzt `WindowsProcessMemory::regions()` direkt).
+
+#![cfg(target_os = "windows")]
 
 use soullink_levelcap::emulator::CitraProcess;
 use soullink_levelcap::memory::windows::WindowsProcessMemory;
