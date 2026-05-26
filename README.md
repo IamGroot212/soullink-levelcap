@@ -7,8 +7,10 @@ und friert die EXP der Party-Pokémon auf einem aus `caps.txt` abgeleiteten Leve
 Wenn ein Spieler den nächsten Orden gewinnt, steigt sein Cap automatisch — kein manuelles
 Pflegen einer geteilten Cap-Datei mehr nötig.
 
-> Status: **WIP**. Phase 1 (caps.txt-Parser) ist funktionsfähig. Die Memory-Offsets (R1-R5) brauchen
-> noch eine Recherche-Session mit laufendem Citra + Save-States — siehe [`docs/OFFSETS.md`](docs/OFFSETS.md).
+> Status: **Production-Ready**. Live verifiziert (8 Orden, 3-Pokemon-Party, EP-Teiler aktiv,
+> Cap-Freeze greift während des Kampfes, keine Egg-Korruption). Auto-Triangulation der
+> RAM-Offsets via Save-File-Signaturen — funktioniert für alle Citra-Versionen +
+> ORAS-Regionen (EUR/USA/JPN) + randomisierte CXIs. Memory-Details: [`docs/OFFSETS.md`](docs/OFFSETS.md).
 
 ## Quick Start (Mitspieler)
 
