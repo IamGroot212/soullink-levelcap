@@ -14,6 +14,12 @@ struct Args {
     /// Pfad zu caps.txt
     #[arg(short, long, default_value = "caps.txt")]
     caps_file: PathBuf,
+
+    /// Pfad zur Citra ORAS-Save-Datei (`main`). Default: Auto-Detect in Citras
+    /// Standard-Pfad (Windows: %APPDATA%/Citra/sdmc/..., Linux: ~/.local/share/citra-emu/sdmc/...).
+    /// Wird fuer Offset-Auto-Triangulation gebraucht.
+    #[arg(long)]
+    sav_path: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -29,5 +35,5 @@ fn main() -> Result<()> {
             println!("[INFO]   {} Orden → Lvl {}", badges, cap);
         }
     }
-    daemon::run(caps)
+    daemon::run(caps, args.sav_path)
 }

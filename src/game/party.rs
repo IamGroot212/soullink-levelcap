@@ -5,26 +5,9 @@ use crate::game::decrypt::{decrypt_slot, encrypt_slot};
 use crate::game::growth_rates::{growth_rate_of, level_from_exp};
 use crate::memory::ProcessMemory;
 
-/// Offset der Party-Base im 3DS-Adressraum (FCRAM-relativ) für ORAS v1.4.
-///
-/// **Triangulation via EC-Cross-Korrelation** (Phase C+, 2026-05-26):
-/// 3 Pokemon ECs aus .sav gesucht; 2 Triangulationen gefunden:
-///
-/// - 0x0F49E50C, stride 260 (PB6 Save-Block-Kopie in RAM) — **wird im Battle NICHT
-///   live aktualisiert**, erst beim in-game Speichern.
-/// - **0x0F5182BC, stride 484** (Citra-Tracker Battle-Layout, 112-Byte-Gap zwischen
-///   Encrypted-Blocks und Stats) — **wird live im Battle vom Spiel beschrieben**,
-///   inklusive EP-Teiler-Verteilung.
-///
-/// Wir nutzen die **484-Stride-Variante** weil nur dort der Daemon greifen kann
-/// während noch gekämpft wird. Verifiziert: nach einem Trainer-Kampf zeigte
-/// 260-Kopie unveränderte EXP, 484-Kopie hatte +959/+574/+479 EXP.
-///
-/// citra-updater.py:1047 nennt `0x8CF727C` (auch 484-Stride); unsere Adresse weicht
-/// dank anderem Citra-Build ab. Siehe docs/OFFSETS.md.
-pub const PARTY_BASE_3DS: usize = 0x0F51_82BC;
-
 /// Stride zwischen Party-Slots in Bytes (Gen-6 Battle-Layout).
+/// **Party-Base-Adresse** liegt in `citra.party_base_3ds` (default oder
+/// via `crate::setup::detect_offsets` auto-detected).
 pub const POKEMON_SIZE: usize = 484;
 
 /// Maximale Slot-Anzahl in der Party.
@@ -69,7 +52,7 @@ impl PartyPokemon {
     /// Liest den Party-Slot, dekryptet ihn, und gibt die Felder zurück.
     /// `Ok(None)` wenn der Slot leer ist (PV == 0).
     pub fn read(mem: &impl ProcessMemory, citra: &CitraProcess, slot: u8) -> Result<Option<Self>> {
-        let base = citra.fcram_addr(PARTY_BASE_3DS + (slot as usize) * POKEMON_SIZE);
+        let base = citra.fcram_addr(citra.party_base_3ds + (slot as usize) * POKEMON_SIZE);
 
         let blocks = mem.read_bytes(base, PKM_BLOCKS_LEN)?;
         if blocks.len() != PKM_BLOCKS_LEN {
@@ -141,7 +124,7 @@ impl PartyPokemon {
         citra: &CitraProcess,
         new_exp: u32,
     ) -> Result<()> {
-        let base = citra.fcram_addr(PARTY_BASE_3DS + (self.slot as usize) * POKEMON_SIZE);
+        let base = citra.fcram_addr(citra.party_base_3ds + (self.slot as usize) * POKEMON_SIZE);
 
         let blocks = mem.read_bytes(base, PKM_BLOCKS_LEN)?;
         let stats = mem.read_bytes(base + STATS_START, STATS_LEN)?;

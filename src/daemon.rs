@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -8,14 +9,16 @@ use crate::game::{
     growth_rates::growth_rate_of, min_exp_for_level, read_badge_count, PartyPokemon, PARTY_SIZE,
 };
 use crate::memory::{DefaultProcessMemory, ProcessMemory};
+use crate::setup;
 
 const TICK_INTERVAL: Duration = Duration::from_millis(500);
 const RECONNECT_BACKOFF: Duration = Duration::from_secs(2);
+const FCRAM_SIZE: usize = 256 * 1024 * 1024; // New3DS Extended FCRAM
 
-pub fn run(caps: CapTable) -> Result<()> {
+pub fn run(caps: CapTable, sav_path_override: Option<PathBuf>) -> Result<()> {
     loop {
         println!("[soullink-levelcap] Suche Citra-Prozess...");
-        let citra = match CitraProcess::find() {
+        let mut citra = match CitraProcess::find() {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("[WARN] {e} — neuer Versuch in {:?}", RECONNECT_BACKOFF);
@@ -36,6 +39,40 @@ pub fn run(caps: CapTable) -> Result<()> {
                 continue;
             }
         };
+
+        // Auto-Triangulation der Offsets via .sav-Signaturen.
+        let sav_path = match sav_path_override.clone() {
+            Some(p) => p,
+            None => match setup::find_sav_path() {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!(
+                        "[ERROR] .sav-Pfad nicht auto-gefunden: {e}\n        \
+                         Mit --sav-path angeben."
+                    );
+                    sleep(RECONNECT_BACKOFF);
+                    continue;
+                }
+            },
+        };
+        println!("[INFO] Save-File: {}", sav_path.display());
+
+        match setup::detect_offsets(&sav_path, &mem, citra.fcram_base, FCRAM_SIZE) {
+            Ok(off) => {
+                println!(
+                    "[INFO] Offsets detected: BADGE=0x{:08X}, PARTY=0x{:08X}",
+                    off.badge_offset_3ds, off.party_base_3ds
+                );
+                citra.badge_offset_3ds = off.badge_offset_3ds;
+                citra.party_base_3ds = off.party_base_3ds;
+            }
+            Err(e) => {
+                eprintln!(
+                    "[WARN] Offset-Detection fehlgeschlagen: {e}\n       \
+                     Verwende Default-Offsets — funktioniert nur fuer fbeck's Citra-Build."
+                );
+            }
+        }
 
         run_loop(&mem, &citra, &caps);
 

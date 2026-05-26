@@ -56,6 +56,32 @@ Deine `caps.txt` deckt nicht alle 9 Stufen (0–8) ab. Füge die fehlende Zeile 
 
 ## EXP wird trotz Cap nicht eingefroren
 
-Wahrscheinlich ist `BADGE_BYTE_OFFSET_3DS` oder `PARTY_BASE_3DS` für deine ORAS-Version falsch (oder noch ein Platzhalter — siehe `docs/OFFSETS.md`). Logs zeigen "0 Orden → Cap N" obwohl du z. B. 3 Orden hast → Badge-Offset falsch.
+Daemon nutzt Auto-Triangulation der Offsets via .sav-Datei. Wenn das fehlschlägt,
+greift ein Default-Offset (für fbeck's Build). Diagnose im Log:
 
-Issue mit Citra-Version und Spielausgabe (DE/EN/US/JP/AU/v1.0/v1.4) öffnen.
+```
+[INFO] Offsets detected: BADGE=0x..., PARTY=0x...
+```
+
+Wenn diese Zeile fehlt und stattdessen `[WARN] Offset-Detection fehlgeschlagen`
+kommt, mögliche Ursachen:
+
+- **".sav-Pfad nicht auto-gefunden"** → Mit `--sav-path` angeben:
+  ```bash
+  ./soullink-levelcap --sav-path "C:\path\to\citra\sdmc\Nintendo 3DS\...\main"
+  ```
+- **"Misc-Block-Signatur nicht in FCRAM gefunden"** → Spiel ist nicht in-game,
+  oder save zu alt. In Citra "Continue" wählen.
+- **"Keine Party-Triangulation"** → Party-Pokemon haben andere ECs in RAM als
+  in .sav. In-game speichern → erneut starten.
+
+## "Kein Cap für N Orden in caps.txt definiert"
+
+Deine `caps.txt` deckt nicht alle 9 Stufen (0–8) ab. Füge die fehlende Zeile hinzu. Bewusst harte Semantik — kein impliziter Fallback.
+
+## Falsche Citra-Version oder Spiel-Region
+
+Issue mit Citra-Version (z.B. `citra-windows-msvc-20240303-0ff3440`) und
+Spielausgabe (DE/EN/US/JP/AU/v1.0/v1.4) öffnen. Auto-Triangulation deckt
+verschiedene Citra-Builds und ORAS-Regionen ab, sollte aber bekannte
+Defaults nicht überschreiben falls beides versagt.

@@ -37,6 +37,17 @@ schaut in `caps.txt` nach dem passenden Level-Cap. EXP der Party-Pokémon werden
 automatisch auf diesem Cap eingefroren — sobald du einen neuen Orden gewinnst,
 steigt der Cap automatisch.
 
+Beim ersten Start triangulet der Daemon die RAM-Offsets automatisch aus
+deinem Save-File. Funktioniert für alle Citra-Versionen + alle ORAS-Regionen
+(EUR/USA/JPN) + randomisierte CXIs. Voraussetzung: du bist **in-game** (nicht
+nur im Citra-Menü), dein Save existiert in Citras Default-Pfad, und du hast
+mindestens 1 Pokemon in der Party.
+
+Falls Citra einen non-Standard sdmc-Pfad nutzt:
+```
+./soullink-levelcap --sav-path "/voller/pfad/zu/citra/sdmc/.../main"
+```
+
 ## caps.txt anpassen
 
 ```

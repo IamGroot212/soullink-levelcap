@@ -11,14 +11,29 @@ const FCRAM_3DS_BASE: usize = 0x0800_0000;
 pub struct CitraProcess {
     pub pid: u32,
     pub fcram_base: usize,
+    /// FCRAM-relative 3DS-virtuelle Adresse des Badge-Bytes. Default-Wert kommt
+    /// aus unserer Triangulation; per `crate::setup` wird er beim Start
+    /// auto-detected.
+    pub badge_offset_3ds: usize,
+    /// FCRAM-relative 3DS-virtuelle Adresse des ersten Party-Slots (484-Stride
+    /// Battle-Layout).
+    pub party_base_3ds: usize,
 }
 
 impl CitraProcess {
+    /// Findet Citra-Prozess + FCRAM-Base. Setzt Offsets auf Default
+    /// (fbeck's Build). Fuer andere Setups: `crate::setup::detect_offsets`
+    /// aufrufen + Felder ueberschreiben.
     pub fn find() -> Result<Self> {
         let pid = find_citra_pid()
             .ok_or_else(|| anyhow!("Citra-Prozess nicht gefunden. Citra mit ORAS gestartet?"))?;
         let fcram_base = find_fcram_base(pid)?;
-        Ok(Self { pid, fcram_base })
+        Ok(Self {
+            pid,
+            fcram_base,
+            badge_offset_3ds: 0x0F48_EE14,
+            party_base_3ds: 0x0F51_82BC,
+        })
     }
 
     /// Übersetzt eine 3DS-FCRAM-Adresse (0x08000000+) in die Host-Adresse im Citra-Prozess.
