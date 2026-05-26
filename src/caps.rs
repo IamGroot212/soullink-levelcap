@@ -27,8 +27,12 @@ impl CapTable {
         let mut caps = BTreeMap::new();
 
         for (i, raw) in content.lines().enumerate() {
-            let line = raw.trim();
-            if line.is_empty() || line.starts_with('#') {
+            // Inline-Kommentare ab '#' strippen, dann trim.
+            let line = match raw.split_once('#') {
+                Some((before, _)) => before.trim(),
+                None => raw.trim(),
+            };
+            if line.is_empty() {
                 continue;
             }
 
@@ -121,6 +125,14 @@ mod tests {
         let table = CapTable::parse(content).unwrap();
         assert_eq!(table.cap_for(0).unwrap(), 10);
         assert_eq!(table.cap_for(1).unwrap(), 20);
+    }
+
+    #[test]
+    fn parses_inline_comments_after_value() {
+        let content = "0=14    # vs Felsia\n1=17  # next gym\n";
+        let table = CapTable::parse(content).unwrap();
+        assert_eq!(table.cap_for(0).unwrap(), 14);
+        assert_eq!(table.cap_for(1).unwrap(), 17);
     }
 
     #[test]
