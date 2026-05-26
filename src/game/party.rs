@@ -10,37 +10,52 @@ use crate::memory::ProcessMemory;
 /// **Triangulation via EC-Cross-Korrelation** (Phase C+, 2026-05-26):
 /// 3 Pokemon ECs aus .sav gesucht; 2 Triangulationen gefunden:
 ///
-/// - **0x0F49E50C, stride 260** (PB6 Save-Block-Kopie in RAM)
-/// - 0x0F5182BC, stride 484 (Citra-Tracker Battle-Party-Layout)
+/// - 0x0F49E50C, stride 260 (PB6 Save-Block-Kopie in RAM) — **wird im Battle NICHT
+///   live aktualisiert**, erst beim in-game Speichern.
+/// - **0x0F5182BC, stride 484** (Citra-Tracker Battle-Layout, 112-Byte-Gap zwischen
+///   Encrypted-Blocks und Stats) — **wird live im Battle vom Spiel beschrieben**,
+///   inklusive EP-Teiler-Verteilung.
 ///
-/// Wir nutzen die **260-Byte-Stride Variante**: das ist die PKHeX-kompatible
-/// Save-Block-Repräsentation, ohne 112-Byte Battle-Gap.
+/// Wir nutzen die **484-Stride-Variante** weil nur dort der Daemon greifen kann
+/// während noch gekämpft wird. Verifiziert: nach einem Trainer-Kampf zeigte
+/// 260-Kopie unveränderte EXP, 484-Kopie hatte +959/+574/+479 EXP.
 ///
-/// citra-updater.py:1047 nennt `0x8CF727C` mit Stride 484 — entspricht unserem
-/// 484-Stride Layout (an anderer Adresse). Beide RAM-Kopien werden vom Spiel
-/// synchron gehalten; wir schreiben in die 260-Stride-Kopie.
-pub const PARTY_BASE_3DS: usize = 0x0F49_E50C;
+/// citra-updater.py:1047 nennt `0x8CF727C` (auch 484-Stride); unsere Adresse weicht
+/// dank anderem Citra-Build ab. Siehe docs/OFFSETS.md.
+pub const PARTY_BASE_3DS: usize = 0x0F51_82BC;
 
-/// Stride zwischen Party-Slots in Bytes (PB6 SIZE_6PARTY).
-pub const POKEMON_SIZE: usize = 260;
+/// Stride zwischen Party-Slots in Bytes (Gen-6 Battle-Layout).
+pub const POKEMON_SIZE: usize = 484;
 
 /// Maximale Slot-Anzahl in der Party.
 pub const PARTY_SIZE: u8 = 6;
 
-/// PB6-Layout: 232 Byte Encrypted-Blocks + 22 Byte Stats (verschluesselt) =
-/// 254 Bytes die zusammen decrypted werden. Restliche 6 Bytes (256..260) sind
-/// padding/sonstige Stats die wir nicht lesen.
+/// 484-Layout: 232 Byte Encrypted-Blocks + 112 Byte Battle-Status-Gap + 22 Byte
+/// Stats (verschluesselt) + 118 Reserve. Decrypt nutzt 232 + 22 = 254 Bytes
+/// konkateniert. Battle-Status (slot+232..slot+344) wird uebersprungen.
 const PKM_BLOCKS_LEN: usize = 232;
-const STATS_START: usize = 232;
+const STATS_START: usize = 344;
 const STATS_LEN: usize = 22;
 const CONCAT_LEN: usize = PKM_BLOCKS_LEN + STATS_LEN; // 254
 
 // Offsets im decrypteten 254-Byte-Konkat (Block A nach Unshuffle).
 const PLAIN_SPECIES: usize = 0x08; // Block A: Species (u16 LE)
 const PLAIN_EXP: usize = 0x10; // Block A: EXP (u32 LE)
-                               // HINWEIS: Level steht in PB6 bei plain[0xEC] (= stats[4]), aber das Stats-Decrypt
-                               // liefert in unserem ORAS-Build keinen brauchbaren Wert. Wir berechnen Level
-                               // stattdessen aus EXP + Growth-Rate (siehe `growth_rates::level_from_exp`).
+
+/// PB6 Block-Checksum (PKHeX `RefreshChecksum`): u16-Summe ueber decrypted+unshuffled
+/// Bytes [0x08..0xE8] modulo 2^16, in plain[0x06..0x08] gespeichert.
+fn pb6_block_checksum(plain: &[u8]) -> u16 {
+    let mut sum: u32 = 0;
+    let mut i = 0x08;
+    while i + 1 < 0xE8 {
+        sum = sum.wrapping_add(u16::from_le_bytes([plain[i], plain[i + 1]]) as u32);
+        i += 2;
+    }
+    (sum & 0xFFFF) as u16
+}
+// HINWEIS: Level steht in PB6 bei plain[0xEC] (= stats[4]), aber das Stats-Decrypt
+// liefert in unserem ORAS-Build keinen brauchbaren Wert. Wir berechnen Level
+// stattdessen aus EXP + Growth-Rate (siehe `growth_rates::level_from_exp`).
 
 #[derive(Debug, Clone, Copy)]
 pub struct PartyPokemon {
@@ -136,6 +151,11 @@ impl PartyPokemon {
 
         let mut plain = decrypt_slot(&concat);
         plain[PLAIN_EXP..PLAIN_EXP + 4].copy_from_slice(&new_exp.to_le_bytes());
+
+        // PB6 Checksum bei +0x06 (u16 LE) ueber u16-Summe der Block-Region 0x08..0xE8
+        // neu berechnen — sonst markiert das Spiel das Pokemon als Egg (Bug 2026-05-26).
+        let checksum = pb6_block_checksum(&plain);
+        plain[0x06..0x08].copy_from_slice(&checksum.to_le_bytes());
 
         let enc = encrypt_slot(&plain);
         mem.write_bytes(base, &enc[..PKM_BLOCKS_LEN])?;
