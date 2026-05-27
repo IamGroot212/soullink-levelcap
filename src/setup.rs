@@ -14,10 +14,13 @@ use std::path::{Path, PathBuf};
 use crate::memory::ProcessMemory;
 
 const FCRAM_3DS_BASE: usize = 0x0800_0000;
-const SAV_MISC_OFFSET: usize = 0x4200;
+const SAV_BADGES_OFFSET: usize = 0x4200 + 0x0C; // Misc-Block + Badge-Field
 const SAV_PARTY_OFFSET: usize = 0x14200;
 const SAV_PARTY_STRIDE: usize = 260;
 const RAM_PARTY_STRIDE: usize = 484; // 484-Stride Battle-Layout
+/// Konstanter Abstand Party-Base → Badge-Byte in ORAS-EUR Battle-Layout (RAM).
+/// Empirisch verifiziert: PARTY 0x0F5182BC, BADGE 0x0F48EE14 → diff 0x294A8.
+const PARTY_TO_BADGE_OFFSET: usize = 0x2_94A8;
 
 #[derive(Debug, Clone, Copy)]
 pub struct DetectedOffsets {
@@ -120,15 +123,19 @@ pub fn detect_offsets(
         );
     }
 
-    // 1) Misc-Block-Signatur: Magic(4) + 4 Zero-Bytes als Header. Money im
-    //    .sav kann veraltet sein (RAM aktualisiert sofort, .sav erst beim
-    //    in-game Speichern), deshalb NICHT in die Signatur aufnehmen.
-    //    Badge-Byte ist 0x0C Bytes hinter dem Misc-Block-Start.
-    let misc_sig: [u8; 8] = sav[SAV_MISC_OFFSET..SAV_MISC_OFFSET + 8]
-        .try_into()
-        .unwrap();
+    // Misc-Block-Detection ueber Signatur funktioniert NICHT zuverlaessig:
+    // bytes [0..8] des Misc-Blocks sind block-spezifische Checksum die das
+    // Spiel im RAM anders haelt als auf Disk. Steam-Deck-User-Logs vom
+    // 2026-05-28 bestaetigt: Signatur aus .sav nicht in RAM gefunden.
+    //
+    // Stattdessen: Party-Base via EC-Scan finden (= zuverlaessig), Badge
+    // dann ueber konstanten Abstand `PARTY_TO_BADGE_OFFSET` ableiten.
+    //
+    // Erwarteter Badge-Wert aus .sav (Sanity-Check):
+    let expected_badge_byte = sav[SAV_BADGES_OFFSET];
+    let expected_badges = expected_badge_byte.count_ones();
 
-    // 2) Party-EC-Signaturen: erste 4 Bytes jedes belegten Party-Slots
+    // Party-EC-Signaturen: erste 4 Bytes jedes belegten Party-Slots
     let mut party_ecs: Vec<[u8; 4]> = Vec::new();
     for slot in 0..6 {
         let off = SAV_PARTY_OFFSET + slot * SAV_PARTY_STRIDE;
@@ -142,22 +149,7 @@ pub fn detect_offsets(
         bail!("Keine belegten Party-Slots im Save gefunden. Hast du schon ein Starter?");
     }
 
-    // 3) Scan FCRAM nach Misc-Signatur. Badge-Byte sitzt 0x0C Bytes hinter
-    //    Misc-Block-Start.
-    let misc_hits = scan_region(mem, fcram_base, fcram_size, &misc_sig)?;
-    let badge_offset_3ds = match misc_hits.len() {
-        0 => bail!(
-            "Misc-Block-Signatur ({}) nicht in FCRAM gefunden. ORAS geladen + im Spiel? Save aktuell?",
-            hex(&misc_sig)
-        ),
-        1 => FCRAM_3DS_BASE + misc_hits[0] + 0x0C,
-        n => {
-            eprintln!("[WARN] {n} Misc-Block-Signatur-Hits, nehme ersten.");
-            FCRAM_3DS_BASE + misc_hits[0] + 0x0C
-        }
-    };
-
-    // 4) Party-Base finden: scan nach Slot-0 EC, dann triangulate via Slot-1+
+    // Party-Base finden: scan nach Slot-0 EC, dann triangulate via Slot-1+
     let slot0_hits = scan_region(mem, fcram_base, fcram_size, &party_ecs[0])?;
     if slot0_hits.is_empty() {
         bail!("Party Slot-0 EC nicht in FCRAM gefunden.");
@@ -206,6 +198,32 @@ pub fn detect_offsets(
         FCRAM_3DS_BASE + slot0_hits[0]
     };
 
+    // Badge-Offset relativ zu Party-Base (ORAS-EUR Game-internes Struct-Layout).
+    let badge_offset_3ds = party_base_3ds
+        .checked_sub(PARTY_TO_BADGE_OFFSET)
+        .ok_or_else(|| {
+            anyhow!(
+                "PARTY_BASE 0x{:08X} - 0x{:X} unterlaeuft FCRAM",
+                party_base_3ds,
+                PARTY_TO_BADGE_OFFSET
+            )
+        })?;
+
+    // Sanity-Check: gelesener Badge-Wert sollte popcount >= .sav-Wert haben
+    // (Spielprogress ist monoton). Bei groesserer Abweichung warnen.
+    let ram_addr_in_host = fcram_base + (badge_offset_3ds - FCRAM_3DS_BASE);
+    if let Ok(ram_badge) = mem.read_bytes(ram_addr_in_host, 1) {
+        let ram_badges = ram_badge[0].count_ones();
+        if ram_badges < expected_badges {
+            eprintln!(
+                "[WARN] Badge-Sanity-Check: RAM={} Orden, .sav={} Orden. \
+                 Party-Base ist evtl. nicht die Battle-Party-Kopie. \
+                 Triangulation versuchen wir trotzdem.",
+                ram_badges, expected_badges
+            );
+        }
+    }
+
     Ok(DetectedOffsets {
         badge_offset_3ds,
         party_base_3ds,
@@ -243,11 +261,4 @@ fn scan_region(
         off += read_size;
     }
     Ok(hits)
-}
-
-fn hex(b: &[u8]) -> String {
-    b.iter()
-        .map(|x| format!("{:02X}", x))
-        .collect::<Vec<_>>()
-        .join(" ")
 }
